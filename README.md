@@ -1,3 +1,5 @@
+> ⚠ Alpha access available through early supporter bundle
+
 # HTML2Web3
 
 ![Status](https://img.shields.io/badge/status-alpha-orange)
