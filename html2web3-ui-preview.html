@@ -1,0 +1,1521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTML2Web3 — Decentralized App Packager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   HTML2Web3 — Industrial Terminal UI
+   by iD01t Productions · El'Nox Rah
+═══════════════════════════════════════════════════════════ */
+:root{
+  --bg:#06060C;--surface:#0B0B14;--panel:#0F0F1C;--panel2:#131325;
+  --border:#1A1A2E;--border2:#242440;--border3:#2E2E55;
+  --text:#C4C4D8;--muted:#5C5C80;--dim:#2A2A45;
+  --accent:#00FF9C;--accent2:#00CC7A;--accent-glow:rgba(0,255,156,0.15);
+  --cyan:#00D4FF;--purple:#BF5FFF;--orange:#FF6B35;
+  --danger:#FF3B5C;--warn:#FFD700;--info:#00D4FF;
+  --font:'JetBrains Mono',monospace;
+  --font-display:'Orbitron',monospace;
+  --font-ui:'Share Tech Mono',monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;background:var(--bg);}
+body{font-family:var(--font);font-size:12px;color:var(--text);cursor:default;user-select:none;}
+
+/* SCROLLBARS */
+::-webkit-scrollbar{width:4px;height:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+::-webkit-scrollbar-thumb:hover{background:var(--border3);}
+::selection{background:rgba(0,255,156,0.2);color:#fff;}
+
+/* SCANLINE OVERLAY */
+#scanlines{position:fixed;inset:0;pointer-events:none;z-index:9999;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.06) 2px,rgba(0,0,0,0.06) 4px);}
+
+/* HEX GRID BACKGROUND */
+#hexbg{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden;opacity:0.4;}
+#hexbg canvas{width:100%;height:100%;}
+
+/* CUSTOM CURSOR */
+#cursor{position:fixed;width:20px;height:20px;border:1px solid var(--accent);
+  border-radius:50%;pointer-events:none;z-index:99999;mix-blend-mode:difference;
+  transform:translate(-50%,-50%);transition:transform 0.1s,width 0.15s,height 0.15s;
+  box-shadow:0 0 8px var(--accent);}
+#cursor-dot{position:fixed;width:4px;height:4px;background:var(--accent);
+  border-radius:50%;pointer-events:none;z-index:99999;transform:translate(-50%,-50%);}
+body:has(button:hover) #cursor{width:32px;height:32px;border-color:var(--cyan);}
+
+/* ═══ LAYOUT ═══ */
+#app{position:relative;z-index:1;display:flex;flex-direction:column;height:100vh;}
+
+/* TITLEBAR */
+#titlebar{
+  display:flex;align-items:center;gap:12px;padding:0 16px;height:38px;
+  background:var(--bg);border-bottom:1px solid var(--border);
+  flex-shrink:0;position:relative;
+}
+.tb-controls{display:flex;gap:6px;align-items:center;}
+.tb-dot{width:12px;height:12px;border-radius:50%;cursor:pointer;transition:filter 0.15s;position:relative;}
+.tb-dot:hover{filter:brightness(1.3);}
+.tb-dot.close{background:#FF5F57;}
+.tb-dot.min{background:#FEBC2E;}
+.tb-dot.max{background:#28C840;}
+.tb-center{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;}
+.tb-logo{font-family:var(--font-display);font-size:11px;font-weight:700;
+  color:var(--accent);letter-spacing:4px;text-shadow:0 0 12px var(--accent);}
+.tb-sep{color:var(--dim);}
+.tb-subtitle{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.tb-brand{font-size:9px;color:var(--dim);letter-spacing:2px;}
+
+/* MAIN CONTENT */
+#main{display:flex;flex:1;overflow:hidden;}
+
+/* ═══ SIDEBAR ═══ */
+#sidebar{
+  width:200px;flex-shrink:0;display:flex;flex-direction:column;
+  background:var(--bg);border-right:1px solid var(--border);
+  transition:width 0.2s ease;
+}
+#sidebar.collapsed{width:52px;}
+
+.sidebar-status{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.status-dot.idle{background:var(--dim);}
+.status-dot.building{background:var(--cyan);animation:pulse 1s infinite;}
+.status-dot.success{background:var(--accent);}
+.status-dot.error{background:var(--danger);}
+.status-label{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;}
+
+nav{flex:1;padding:8px 0;overflow-y:auto;}
+.nav-item{
+  width:100%;display:flex;align-items:center;gap:10px;padding:10px 14px;
+  border:none;background:transparent;color:var(--muted);cursor:pointer;
+  border-right:2px solid transparent;text-align:left;transition:all 0.15s;
+  position:relative;
+}
+.nav-item:hover{background:rgba(255,255,255,0.02);color:var(--text);}
+.nav-item.active{
+  background:rgba(0,255,156,0.06);color:var(--accent);
+  border-right-color:var(--accent);
+}
+.nav-icon{font-size:14px;flex-shrink:0;width:18px;text-align:center;}
+.nav-label{font-size:10px;font-family:var(--font);letter-spacing:1px;white-space:nowrap;overflow:hidden;}
+.nav-sub{font-size:8px;color:var(--dim);letter-spacing:1px;white-space:nowrap;overflow:hidden;margin-top:1px;}
+.nav-badge{
+  margin-left:auto;background:var(--border2);color:var(--muted);
+  padding:1px 5px;border-radius:2px;font-size:8px;flex-shrink:0;
+}
+
+.sidebar-actions{padding:10px;border-top:1px solid var(--border);space-y:6px;display:flex;flex-direction:column;gap:6px;}
+.btn-build{
+  width:100%;padding:10px;border:none;background:var(--accent);color:#000;
+  font-family:var(--font);font-size:10px;font-weight:700;letter-spacing:1px;
+  border-radius:2px;cursor:pointer;text-transform:uppercase;
+  box-shadow:0 0 14px rgba(0,255,156,0.35);transition:all 0.15s;
+  display:flex;align-items:center;justify-content:center;gap:6px;
+}
+.btn-build:hover{box-shadow:0 0 22px rgba(0,255,156,0.6);filter:brightness(1.1);}
+.btn-build.cancel{background:transparent;border:1px solid var(--danger);color:var(--danger);box-shadow:none;}
+.btn-build.cancel:hover{background:var(--danger);color:#fff;}
+.btn-collapse{
+  width:100%;padding:7px;border:1px solid var(--border);background:transparent;
+  color:var(--muted);font-family:var(--font);font-size:9px;letter-spacing:1px;
+  border-radius:2px;cursor:pointer;transition:all 0.15s;
+  display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.btn-collapse:hover{border-color:var(--border2);color:var(--text);}
+
+/* ═══ CONTENT ═══ */
+#content{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+.panel-header{
+  display:flex;align-items:center;gap:8px;padding:10px 16px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+  background:linear-gradient(90deg,rgba(0,255,156,0.02) 0%,transparent 50%);
+}
+.ph-dot{width:6px;height:6px;border-radius:50%;}
+.ph-title{font-size:10px;text-transform:uppercase;letter-spacing:3px;color:var(--text);}
+.ph-icon{font-size:13px;color:var(--muted);margin-left:4px;}
+.ph-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+
+.panel-body{flex:1;overflow-y:auto;padding:16px;}
+
+/* ═══ FORM ELEMENTS ═══ */
+.field-group{margin-bottom:14px;}
+.field-label{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:6px;display:block;}
+.field-label .req{color:var(--danger);margin-left:2px;}
+.t-input{
+  width:100%;background:var(--surface);border:1px solid var(--border);border-radius:2px;
+  padding:8px 10px;color:var(--text);font-family:var(--font);font-size:11px;
+  outline:none;transition:border-color 0.15s,box-shadow 0.15s;
+}
+.t-input:focus{border-color:var(--accent);box-shadow:0 0 0 1px rgba(0,255,156,0.2);}
+.t-input::placeholder{color:var(--dim);}
+.t-input.valid{border-color:var(--accent);}
+.t-input.error{border-color:var(--danger);}
+.input-row{display:flex;gap:6px;}
+.input-row .t-input{flex:1;}
+
+/* BUTTONS */
+.btn{
+  padding:8px 14px;border-radius:2px;font-family:var(--font);font-size:10px;
+  letter-spacing:1px;cursor:pointer;transition:all 0.15s;border:none;
+  display:inline-flex;align-items:center;gap:5px;
+}
+.btn-accent{background:var(--accent);color:#000;font-weight:700;box-shadow:0 0 10px rgba(0,255,156,0.3);}
+.btn-accent:hover{box-shadow:0 0 18px rgba(0,255,156,0.5);filter:brightness(1.05);}
+.btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--border);}
+.btn-ghost:hover{border-color:var(--border2);color:var(--text);}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+.btn-danger:hover{background:var(--danger);color:#fff;}
+.btn:disabled{opacity:0.35;cursor:not-allowed;}
+.btn:disabled:hover{filter:none;box-shadow:none;}
+
+/* TOGGLE */
+.toggle-wrap{display:flex;align-items:center;gap:10px;}
+.toggle{
+  position:relative;width:36px;height:20px;cursor:pointer;
+  background:var(--surface);border:1px solid var(--border2);border-radius:10px;
+  transition:all 0.2s;flex-shrink:0;
+}
+.toggle.on{background:var(--accent);border-color:var(--accent);box-shadow:0 0 8px rgba(0,255,156,0.4);}
+.toggle-thumb{
+  position:absolute;top:2px;left:2px;width:14px;height:14px;
+  background:var(--muted);border-radius:50%;transition:transform 0.2s,background 0.2s;
+}
+.toggle.on .toggle-thumb{transform:translateX(16px);background:#000;}
+
+/* STAT GRID */
+.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+.stat-box{background:var(--surface);border:1px solid var(--border);border-radius:2px;padding:10px;}
+.stat-label{font-size:8px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:5px;}
+.stat-value{font-size:12px;color:var(--text);}
+.stat-value.accent{color:var(--accent);text-shadow:0 0 6px rgba(0,255,156,0.4);}
+.stat-value.danger{color:var(--danger);}
+
+/* SECTION PANEL */
+.section{
+  background:var(--panel);border:1px solid var(--border);border-radius:3px;
+  margin-bottom:12px;overflow:hidden;
+}
+.section-header{
+  display:flex;align-items:center;gap:8px;padding:9px 14px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(90deg,rgba(255,255,255,0.01),transparent);
+}
+.section-title{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);}
+.section-body{padding:14px;}
+.section-header-right{margin-left:auto;display:flex;align-items:center;gap:8px;}
+
+/* TARGET CHIPS */
+.chip-grid{display:flex;flex-wrap:wrap;gap:6px;}
+.chip{
+  padding:5px 12px;border-radius:2px;font-size:9px;letter-spacing:1px;
+  border:1px solid var(--border);color:var(--muted);cursor:pointer;
+  transition:all 0.15s;text-transform:uppercase;
+}
+.chip:hover{border-color:var(--border2);color:var(--text);}
+.chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,156,0.08);}
+
+/* BADGE */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:2px;font-size:8px;letter-spacing:1.5px;text-transform:uppercase;}
+.badge-success{background:rgba(0,255,156,0.1);color:var(--accent);border:1px solid rgba(0,255,156,0.2);}
+.badge-error{background:rgba(255,59,92,0.1);color:var(--danger);border:1px solid rgba(255,59,92,0.2);}
+.badge-info{background:rgba(0,212,255,0.1);color:var(--cyan);border:1px solid rgba(0,212,255,0.2);}
+.badge-warn{background:rgba(255,215,0,0.1);color:var(--warn);border:1px solid rgba(255,215,0,0.2);}
+.badge-idle{background:var(--surface);color:var(--muted);border:1px solid var(--border);}
+
+/* ═══ BUILD LOG ═══ */
+#build-log{flex:1;overflow-y:auto;padding:12px 16px;font-family:var(--font);font-size:11px;line-height:1.7;}
+.log-line{display:flex;gap:10px;animation:fadeIn 0.15s ease;}
+.log-ts{color:var(--dim);flex-shrink:0;font-size:10px;}
+.log-icon{flex-shrink:0;width:14px;text-align:center;}
+.log-msg{word-break:break-all;}
+.log-info .log-msg{color:var(--text);}
+.log-success .log-icon,.log-success .log-msg{color:var(--accent);}
+.log-error .log-icon,.log-error .log-msg{color:var(--danger);}
+.log-warn .log-icon,.log-warn .log-msg{color:var(--warn);}
+.log-trace .log-msg,.log-trace .log-icon{color:var(--dim);}
+.log-progress .log-msg,.log-progress .log-icon{color:var(--cyan);}
+
+.log-empty{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;color:var(--dim);gap:12px;
+}
+.log-empty-icon{font-size:48px;opacity:0.15;}
+.log-empty-text{font-size:10px;text-transform:uppercase;letter-spacing:3px;}
+.log-empty-sub{font-size:9px;color:var(--dim);opacity:0.5;text-align:center;max-width:280px;line-height:1.8;}
+
+/* PROGRESS */
+.progress-bar-wrap{padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.progress-label{display:flex;justify-content:space-between;margin-bottom:6px;}
+.progress-label span{font-size:9px;color:var(--muted);letter-spacing:1px;}
+.progress-label .pct{color:var(--accent);}
+.progress-track{height:2px;background:var(--surface);border-radius:1px;overflow:hidden;}
+.progress-fill{height:100%;background:var(--accent);border-radius:1px;transition:width 0.4s ease;
+  box-shadow:0 0 6px rgba(0,255,156,0.6);}
+
+/* BUILD RESULT */
+#build-result{
+  flex-shrink:0;border-top:1px solid var(--border);padding:14px 16px;
+  animation:slideUp 0.3s ease;
+}
+#build-result.success{background:rgba(0,255,156,0.04);}
+#build-result.error{background:rgba(255,59,92,0.04);}
+
+/* ═══ WEB3 PANEL ═══ */
+.chain-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.chain-card{
+  display:flex;flex-direction:column;align-items:center;gap:6px;
+  padding:12px 6px;border:1px solid var(--border);border-radius:3px;
+  cursor:pointer;transition:all 0.15s;
+}
+.chain-card:hover{border-color:var(--border2);}
+.chain-card.active{border-color:var(--accent);background:rgba(0,255,156,0.06);}
+.chain-icon{font-size:20px;}
+.chain-label{font-size:8px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);}
+.chain-card.active .chain-label{color:var(--accent);}
+
+.gate-types{display:flex;gap:6px;}
+.gate-type{
+  flex:1;padding:9px;border:1px solid var(--border);border-radius:2px;
+  text-align:center;cursor:pointer;transition:all 0.15s;
+}
+.gate-type:hover{border-color:var(--border2);}
+.gate-type.active{border-color:var(--accent);background:rgba(0,255,156,0.08);}
+.gate-type-name{font-size:10px;font-weight:700;margin-bottom:2px;}
+.gate-type.active .gate-type-name{color:var(--accent);}
+.gate-type-desc{font-size:8px;color:var(--dim);}
+
+.wallet-connected{display:flex;align-items:center;justify-content:space-between;
+  padding:12px;background:rgba(0,255,156,0.04);border:1px solid rgba(0,255,156,0.15);border-radius:2px;}
+.wallet-info .wallet-label{font-size:9px;color:var(--accent);text-transform:uppercase;letter-spacing:2px;}
+.wallet-info .wallet-addr{font-size:11px;margin-top:3px;color:var(--text);}
+.wallet-info .wallet-chain{font-size:9px;color:var(--muted);margin-top:2px;}
+
+.verify-result{
+  padding:10px 12px;border-radius:2px;font-size:10px;font-family:var(--font);
+  display:flex;align-items:center;gap:8px;margin-top:8px;
+}
+.verify-result.pass{background:rgba(0,255,156,0.08);border:1px solid rgba(0,255,156,0.2);color:var(--accent);}
+.verify-result.fail{background:rgba(255,59,92,0.08);border:1px solid rgba(255,59,92,0.2);color:var(--danger);}
+
+/* ═══ PREVIEW PANEL ═══ */
+.preview-controls{flex-shrink:0;padding:14px 16px;border-bottom:1px solid var(--border);}
+.gateway-selector{display:flex;gap:6px;flex-wrap:wrap;}
+.gw-btn{
+  padding:5px 12px;border:1px solid var(--border);border-radius:2px;
+  font-size:9px;letter-spacing:1px;cursor:pointer;text-transform:uppercase;
+  background:transparent;color:var(--muted);transition:all 0.15s;
+}
+.gw-btn:hover{border-color:var(--border2);color:var(--text);}
+.gw-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,156,0.08);}
+.preview-frame-wrap{flex:1;position:relative;overflow:hidden;background:var(--bg);}
+.preview-empty{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:var(--dim);gap:14px;
+}
+
+/* ═══ HISTORY PANEL ═══ */
+.history-item{
+  background:var(--panel);border:1px solid var(--border);border-radius:3px;
+  margin-bottom:10px;overflow:hidden;transition:border-color 0.15s;
+}
+.history-item:hover{border-color:var(--border2);}
+.history-item.success{border-left:2px solid var(--accent);}
+.history-item.error{border-left:2px solid var(--danger);}
+.history-header{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);}
+.history-body{padding:10px 14px;font-size:10px;}
+.history-kv{display:flex;align-items:center;gap:8px;margin-bottom:4px;}
+.history-key{color:var(--muted);width:36px;flex-shrink:0;font-size:9px;text-transform:uppercase;letter-spacing:1px;}
+.history-val{color:var(--cyan);font-family:var(--font);font-size:10px;word-break:break-all;}
+
+/* ═══ STATUS BAR ═══ */
+#statusbar{
+  display:flex;align-items:center;gap:10px;padding:0 16px;height:26px;
+  border-top:1px solid var(--border);background:var(--bg);flex-shrink:0;
+  font-size:9px;color:var(--muted);letter-spacing:1px;
+}
+.sb-item{display:flex;align-items:center;gap:5px;}
+.sb-dot{width:5px;height:5px;border-radius:50%;}
+.sb-sep{color:var(--dim);}
+.sb-accent{color:var(--accent);}
+.sb-right{margin-left:auto;display:flex;align-items:center;gap:10px;}
+
+/* ═══ LOG TOPBAR ═══ */
+.log-topbar{
+  display:flex;align-items:center;gap:8px;padding:8px 16px;
+  border-bottom:1px solid var(--border);flex-shrink:0;
+}
+.log-filter{
+  background:var(--surface);border:1px solid var(--border);border-radius:2px;
+  padding:4px 8px;color:var(--muted);font-family:var(--font);font-size:9px;
+  outline:none;letter-spacing:1px;cursor:pointer;
+}
+.log-filter:focus{border-color:var(--accent);}
+.log-autoscroll{
+  padding:4px 8px;border-radius:2px;border:1px solid var(--border);
+  background:transparent;color:var(--muted);font-family:var(--font);font-size:9px;
+  cursor:pointer;letter-spacing:1px;transition:all 0.15s;
+}
+.log-autoscroll.on{border-color:var(--accent);color:var(--accent);}
+
+/* ═══ IPFS STATUS ═══ */
+.ipfs-status{display:flex;align-items:center;gap:6px;margin-top:8px;padding:8px 10px;
+  background:var(--surface);border:1px solid var(--border);border-radius:2px;}
+.ipfs-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.ipfs-dot.connected{background:var(--accent);}
+.ipfs-dot.disconnected{background:var(--danger);}
+.ipfs-text{font-size:10px;}
+
+/* ═══ ANIMATIONS ═══ */
+@keyframes fadeIn{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+@keyframes slideUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:none;}}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+@keyframes glitch{
+  0%,100%{clip-path:inset(0 0 98% 0);}
+  10%{clip-path:inset(30% 0 50% 0);}
+  20%{clip-path:inset(70% 0 20% 0);}
+  30%{clip-path:inset(10% 0 80% 0);}
+  40%{clip-path:inset(60% 0 30% 0);}
+  50%{clip-path:inset(20% 0 70% 0);}
+  60%{clip-path:inset(80% 0 10% 0);}
+  70%{clip-path:inset(40% 0 50% 0);}
+  80%{clip-path:inset(0 0 60% 0);}
+  90%{clip-path:inset(50% 0 40% 0);}
+}
+@keyframes spin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+@keyframes scanMove{
+  0%{transform:translateY(-100%);}
+  100%{transform:translateY(100vh);}
+}
+
+/* GLITCH TEXT */
+.glitch-text{position:relative;display:inline-block;}
+.glitch-text::before,.glitch-text::after{
+  content:attr(data-text);position:absolute;top:0;left:0;width:100%;height:100%;
+}
+.glitch-text::before{color:#0ff;animation:glitch 4s infinite;left:1px;}
+.glitch-text::after{color:#f0f;animation:glitch 4s infinite 0.15s;left:-1px;}
+
+/* HEX CORNER DECORATIONS */
+.hex-corner{position:absolute;width:40px;height:40px;opacity:0.3;}
+.hex-corner svg{width:100%;height:100%;}
+.hex-tl{top:0;left:0;}
+.hex-tr{top:0;right:0;transform:scaleX(-1);}
+.hex-bl{bottom:0;left:0;transform:scaleY(-1);}
+.hex-br{bottom:0;right:0;transform:scale(-1);}
+
+/* ADDRESS VALIDATION INDICATOR */
+.addr-validate{position:relative;}
+.addr-validate .addr-icon{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:13px;
+}
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div id="cursor"></div>
+<div id="cursor-dot"></div>
+
+<!-- Scanlines -->
+<div id="scanlines"></div>
+
+<!-- Hex background canvas -->
+<div id="hexbg"><canvas id="bgCanvas"></canvas></div>
+
+<!-- ═══ APP ═══ -->
+<div id="app">
+
+  <!-- TITLEBAR -->
+  <div id="titlebar">
+    <div class="tb-controls">
+      <div class="tb-dot close" onclick="window.close()"></div>
+      <div class="tb-dot min"></div>
+      <div class="tb-dot max"></div>
+    </div>
+    <div class="tb-center">
+      <span class="glitch-text tb-logo" data-text="HTML2WEB3">HTML2WEB3</span>
+      <span class="tb-sep">—</span>
+      <span class="tb-subtitle">Decentralized App Packager</span>
+    </div>
+    <div class="tb-brand">iD01t Productions</div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- SIDEBAR -->
+    <div id="sidebar">
+      <div class="sidebar-status">
+        <div class="status-dot idle" id="statusDot"></div>
+        <span class="status-label" id="statusLabel">STANDBY</span>
+      </div>
+
+      <nav>
+        <button class="nav-item active" data-tab="config">
+          <span class="nav-icon">⚙</span>
+          <div>
+            <div class="nav-label">Configure</div>
+            <div class="nav-sub">Project settings</div>
+          </div>
+        </button>
+        <button class="nav-item" data-tab="web3">
+          <span class="nav-icon">⬡</span>
+          <div>
+            <div class="nav-label">Web3 Gate</div>
+            <div class="nav-sub">Wallet + NFT lock</div>
+          </div>
+        </button>
+        <button class="nav-item" data-tab="build">
+          <span class="nav-icon">▶</span>
+          <div>
+            <div class="nav-label">Build Log</div>
+            <div class="nav-sub">Compile + deploy</div>
+          </div>
+        </button>
+        <button class="nav-item" data-tab="preview">
+          <span class="nav-icon">◈</span>
+          <div>
+            <div class="nav-label">Preview</div>
+            <div class="nav-sub">IPFS + Helia</div>
+          </div>
+        </button>
+        <button class="nav-item" data-tab="history">
+          <span class="nav-icon">≡</span>
+          <div>
+            <div class="nav-label">History</div>
+            <div class="nav-sub">Build records</div>
+          </div>
+          <span class="nav-badge" id="historyBadge" style="display:none">0</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-actions">
+        <button class="btn-build" id="buildBtn" onclick="handleBuild()">
+          <span>▶</span> Build + Deploy
+        </button>
+        <button class="btn-collapse" onclick="toggleSidebar()">
+          <span id="collapseIcon">◁</span>
+          <span id="collapseText">Collapse</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div id="content">
+
+      <!-- ═══ CONFIG TAB ═══ -->
+      <div id="tab-config" class="tab-panel" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+        <div class="panel-header">
+          <div class="ph-dot" style="background:var(--accent)"></div>
+          <span class="ph-title">Project Configuration</span>
+          <span class="ph-icon">⚙</span>
+        </div>
+        <div class="panel-body">
+
+          <!-- Project Identity -->
+          <div class="section">
+            <div class="section-header">
+              <div class="ph-dot" style="background:var(--accent);width:5px;height:5px;"></div>
+              <span class="section-title">Project Identity</span>
+            </div>
+            <div class="section-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="field-group" style="margin:0">
+                  <label class="field-label">Project Name<span class="req">*</span></label>
+                  <input class="t-input" id="projectName" value="MyDApp" placeholder="MyDApp">
+                </div>
+                <div class="field-group" style="margin:0">
+                  <label class="field-label">Version</label>
+                  <input class="t-input" id="appVersion" value="1.0.0" placeholder="1.0.0">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Directories -->
+          <div class="section">
+            <div class="section-header">
+              <div class="ph-dot" style="background:var(--cyan);width:5px;height:5px;"></div>
+              <span class="section-title">Directories</span>
+            </div>
+            <div class="section-body">
+              <div class="field-group">
+                <label class="field-label">Source Directory<span class="req">*</span></label>
+                <div class="input-row">
+                  <input class="t-input" id="sourceDir" value="/Users/elnox/projects/my-dapp" placeholder="/path/to/html/project" readonly>
+                  <button class="btn btn-ghost" onclick="pickSource()">Browse</button>
+                </div>
+              </div>
+              <div class="field-group">
+                <label class="field-label">Output Directory<span class="req">*</span></label>
+                <div class="input-row">
+                  <input class="t-input" id="outputDir" value="/Users/elnox/Desktop/builds" placeholder="/path/to/output" readonly>
+                  <button class="btn btn-ghost" onclick="pickOutput()">Browse</button>
+                </div>
+              </div>
+
+              <!-- Project Stats -->
+              <div>
+                <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;" onclick="scanProject()">
+                  <span id="scanSpinner">↺</span> Scan Project
+                </button>
+                <div class="stat-grid" id="statsGrid">
+                  <div class="stat-box"><div class="stat-label">Files</div><div class="stat-value accent">47</div></div>
+                  <div class="stat-box"><div class="stat-label">Size</div><div class="stat-value">1.24 MB</div></div>
+                  <div class="stat-box"><div class="stat-label">index.html</div><div class="stat-value accent">✓ Found</div></div>
+                  <div class="stat-box"><div class="stat-label">Service Worker</div><div class="stat-value">+ Inject</div></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- IPFS -->
+          <div class="section">
+            <div class="section-header">
+              <div class="ph-dot" style="background:var(--purple);width:5px;height:5px;"></div>
+              <span class="section-title">IPFS Deployment</span>
+              <div class="section-header-right">
+                <div class="toggle on" id="ipfsToggle" onclick="toggleSetting('ipfs')"><div class="toggle-thumb"></div></div>
+              </div>
+            </div>
+            <div class="section-body" id="ipfsBody">
+              <div class="field-group">
+                <label class="field-label">Kubo RPC Gateway</label>
+                <div class="input-row">
+                  <input class="t-input" id="ipfsGateway" value="http://127.0.0.1:5001" placeholder="http://127.0.0.1:5001">
+                  <button class="btn btn-ghost" onclick="pingIpfs()" style="font-size:9px;">⟲ Ping</button>
+                </div>
+              </div>
+              <div class="ipfs-status" id="ipfsStatusBox">
+                <div class="ipfs-dot connected"></div>
+                <span class="ipfs-text" style="color:var(--accent)">Connected — Kubo v0.27.0 — Peer: 12D3KooW...</span>
+              </div>
+              <p style="font-size:9px;color:var(--muted);margin-top:8px;line-height:1.8;">
+                Requires a running <span style="color:var(--cyan)">Kubo</span> node. Run
+                <span style="color:var(--accent);font-family:var(--font)">ipfs daemon</span> to start.
+              </p>
+            </div>
+          </div>
+
+          <!-- Build Targets -->
+          <div class="section">
+            <div class="section-header">
+              <div class="ph-dot" style="background:var(--warn);width:5px;height:5px;"></div>
+              <span class="section-title">Build Targets</span>
+            </div>
+            <div class="section-body">
+              <div class="chip-grid" id="targetChips">
+                <div class="chip active" onclick="toggleChip(this,'all')">ALL</div>
+                <div class="chip" onclick="toggleChip(this,'windows')">Windows</div>
+                <div class="chip" onclick="toggleChip(this,'linux')">Linux</div>
+                <div class="chip" onclick="toggleChip(this,'macos')">macOS</div>
+                <div class="chip" onclick="toggleChip(this,'deb')">.deb</div>
+                <div class="chip" onclick="toggleChip(this,'rpm')">.rpm</div>
+                <div class="chip" onclick="toggleChip(this,'appimage')">AppImage</div>
+                <div class="chip" onclick="toggleChip(this,'msi')">.msi</div>
+                <div class="chip" onclick="toggleChip(this,'dmg')">.dmg</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security -->
+          <div class="section">
+            <div class="section-header">
+              <div class="ph-dot" style="background:var(--danger);width:5px;height:5px;"></div>
+              <span class="section-title">Security</span>
+            </div>
+            <div class="section-body">
+              <div class="toggle-wrap" style="justify-content:space-between;">
+                <div>
+                  <div style="font-size:11px;color:var(--text);">Sandbox Mode</div>
+                  <div style="font-size:9px;color:var(--muted);margin-top:3px;">Restrict packaged app from accessing root filesystem</div>
+                </div>
+                <div class="toggle on" onclick="this.classList.toggle('on')"><div class="toggle-thumb"></div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Branding -->
+          <div class="section">
+            <div class="section-header">
+              <div class="ph-dot" style="background:var(--orange);width:5px;height:5px;"></div>
+              <span class="section-title">Branding</span>
+            </div>
+            <div class="section-body">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div>
+                  <label class="field-label">App Icon</label>
+                  <div class="input-row">
+                    <input class="t-input" placeholder="No icon selected" readonly style="font-size:9px;">
+                    <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;">Pick</button>
+                  </div>
+                </div>
+                <div>
+                  <label class="field-label">Splash Screen</label>
+                  <div class="input-row">
+                    <input class="t-input" placeholder="No splash selected" readonly style="font-size:9px;">
+                    <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px;">Pick</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ WEB3 TAB ═══ -->
+      <div id="tab-web3" class="tab-panel" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
+        <div class="panel-header">
+          <div class="ph-dot" style="background:var(--purple)"></div>
+          <span class="ph-title">Web3 Wallet Gate</span>
+          <span class="ph-icon">⬡</span>
+          <div class="ph-right">
+            <span class="badge badge-warn" id="gateBadge">INACTIVE</span>
+            <div class="toggle" id="gateToggle" onclick="toggleGate()"><div class="toggle-thumb"></div></div>
+          </div>
+        </div>
+        <div class="panel-body" id="gateBody" style="opacity:0.4;pointer-events:none;">
+
+          <div class="section">
+            <div class="section-header"><div class="ph-dot" style="background:var(--cyan);width:5px;height:5px;"></div><span class="section-title">Blockchain Network</span></div>
+            <div class="section-body">
+              <div class="chain-grid">
+                <div class="chain-card active" onclick="selectChain(this,'ethereum')">
+                  <div class="chain-icon">Ξ</div>
+                  <div class="chain-label" style="color:var(--accent)">Ethereum</div>
+                </div>
+                <div class="chain-card" onclick="selectChain(this,'polygon')">
+                  <div class="chain-icon">⬡</div>
+                  <div class="chain-label">Polygon</div>
+                </div>
+                <div class="chain-card" onclick="selectChain(this,'arbitrum')">
+                  <div class="chain-icon">▲</div>
+                  <div class="chain-label">Arbitrum</div>
+                </div>
+                <div class="chain-card" onclick="selectChain(this,'solana')">
+                  <div class="chain-icon">◎</div>
+                  <div class="chain-label">Solana</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-header"><div class="ph-dot" style="background:var(--warn);width:5px;height:5px;"></div><span class="section-title">Gate Type</span></div>
+            <div class="section-body">
+              <div class="gate-types">
+                <div class="gate-type active" onclick="selectGateType(this,'ERC721')">
+                  <div class="gate-type-name" style="color:var(--accent)">ERC-721</div>
+                  <div class="gate-type-desc">NFT Collection</div>
+                </div>
+                <div class="gate-type" onclick="selectGateType(this,'ERC1155')">
+                  <div class="gate-type-name">ERC-1155</div>
+                  <div class="gate-type-desc">Multi-token</div>
+                </div>
+                <div class="gate-type" onclick="selectGateType(this,'ERC20')">
+                  <div class="gate-type-name">ERC-20</div>
+                  <div class="gate-type-desc">Fungible Token</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-header"><div class="ph-dot" style="background:var(--accent);width:5px;height:5px;"></div><span class="section-title">Contract Configuration</span></div>
+            <div class="section-body">
+              <div class="field-group addr-validate">
+                <label class="field-label">Contract Address</label>
+                <input class="t-input" id="contractAddr" value="0x1A92f7381B9F03921564a437210bB9396471050C"
+                  placeholder="0x..."
+                  oninput="validateAddr(this)"
+                  style="border-color:var(--accent);">
+                <span class="addr-icon" id="addrIcon" style="color:var(--accent)">✓</span>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="field-group" style="margin:0">
+                  <label class="field-label">Token ID</label>
+                  <input class="t-input" id="tokenId" value="0" placeholder="0">
+                </div>
+                <div class="field-group" style="margin:0">
+                  <label class="field-label">Minimum Balance</label>
+                  <input class="t-input" id="minBalance" value="1" type="number" min="1">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-header"><div class="ph-dot" style="background:var(--purple);width:5px;height:5px;"></div><span class="section-title">Live Wallet Test</span></div>
+            <div class="section-body">
+              <div id="walletDisconnected">
+                <button class="btn btn-accent" onclick="connectWallet()" style="width:100%;justify-content:center;">
+                  ⬡ Connect MetaMask
+                </button>
+              </div>
+              <div id="walletConnected" style="display:none;">
+                <div class="wallet-connected">
+                  <div class="wallet-info">
+                    <div class="wallet-label">Connected</div>
+                    <div class="wallet-addr" id="walletAddr">0x742d35Cc...8B8c</div>
+                    <div class="wallet-chain">Ethereum Mainnet · Chain ID 1</div>
+                  </div>
+                  <button class="btn btn-ghost" onclick="disconnectWallet()" style="font-size:9px;">Disconnect</button>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:8px;">
+                  <button class="btn btn-accent" onclick="verifyToken()" style="flex:1;justify-content:center;">⟲ Verify Ownership</button>
+                  <button class="btn btn-ghost" onclick="signMsg()" style="font-size:9px;">Sign Msg</button>
+                </div>
+                <div id="verifyResult" style="display:none;"></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══ BUILD TAB ═══ -->
+      <div id="tab-build" class="tab-panel" style="display:none;flex-direction:column;height:100%;">
+        <div class="panel-header">
+          <div class="ph-dot" id="buildStatusDot" style="background:var(--dim)"></div>
+          <span class="ph-title">Build Console</span>
+          <span class="badge badge-idle" id="buildBadge">STANDBY</span>
+          <div class="ph-right">
+            <select class="log-filter" id="logFilter" onchange="filterLogs(this.value)">
+              <option value="all">ALL</option>
+              <option value="info">INFO</option>
+              <option value="success">SUCCESS</option>
+              <option value="warn">WARN</option>
+              <option value="error">ERROR</option>
+              <option value="trace">TRACE</option>
+            </select>
+            <button class="log-autoscroll on" id="autoScrollBtn" onclick="toggleAutoScroll()">↓ Auto</button>
+            <button class="btn btn-ghost" style="font-size:9px;padding:4px 8px;" onclick="clearLog()">Clear</button>
+          </div>
+        </div>
+
+        <div id="progressSection" style="display:none;">
+          <div class="progress-bar-wrap">
+            <div class="progress-label">
+              <span>Progress</span>
+              <span class="pct" id="progressPct">0%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill" id="progressFill" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="build-log">
+          <div class="log-empty">
+            <div class="log-empty-icon">◈</div>
+            <div class="log-empty-text">Awaiting Build</div>
+            <div class="log-empty-sub">Configure your project and click Build + Deploy to start the pipeline</div>
+          </div>
+        </div>
+
+        <div id="build-result" style="display:none;"></div>
+      </div>
+
+      <!-- ═══ PREVIEW TAB ═══ -->
+      <div id="tab-preview" class="tab-panel" style="display:none;flex-direction:column;height:100%;">
+        <div class="preview-controls">
+          <div class="panel-header" style="padding:0 0 12px 0;border:none;">
+            <div class="ph-dot" style="background:var(--purple)"></div>
+            <span class="ph-title">IPFS Preview</span>
+            <span class="badge badge-success" id="cidBadge" style="display:none">CID Ready</span>
+            <div class="ph-right">
+              <button class="btn btn-accent" onclick="launchPreview()" style="font-size:9px;">◈ Preview</button>
+              <button class="btn btn-ghost" onclick="copyUrl()" style="font-size:9px;">⎘ Copy URL</button>
+            </div>
+          </div>
+
+          <div class="field-group" style="margin-bottom:10px;">
+            <div class="input-row">
+              <input class="t-input" id="previewCid" placeholder="Paste CID or build to generate..." style="font-size:10px;">
+              <button class="btn btn-ghost" onclick="useLatestCid()" style="font-size:9px;">Use Latest</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom:8px;">
+            <div style="font-size:9px;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Gateway</div>
+            <div class="gateway-selector">
+              <button class="gw-btn active" onclick="selectGateway(this,'local')">Local Node</button>
+              <button class="gw-btn" onclick="selectGateway(this,'ipfs.io')">ipfs.io</button>
+              <button class="gw-btn" onclick="selectGateway(this,'cloudflare')">Cloudflare</button>
+              <button class="gw-btn" onclick="selectGateway(this,'w3s')">Web3.Storage</button>
+            </div>
+          </div>
+
+          <div id="previewUrlBar" style="display:none;font-size:9px;color:var(--muted);font-family:var(--font);">
+            URL: <span id="previewUrlText" style="color:var(--cyan)"></span>
+          </div>
+        </div>
+
+        <div class="preview-frame-wrap">
+          <div class="preview-empty" id="previewEmpty">
+            <div style="font-size:52px;opacity:0.12;">◈</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:3px;">No Preview Active</div>
+            <div style="font-size:9px;opacity:0.4;text-align:center;max-width:260px;line-height:1.9;margin-top:4px;">
+              Build with IPFS enabled or enter a CID to preview your decentralized app
+            </div>
+            <div style="margin-top:20px;padding:14px;background:var(--panel);border:1px solid var(--border);border-radius:3px;max-width:360px;">
+              <div style="font-size:9px;color:var(--purple);margin-bottom:6px;letter-spacing:1px;">⬡ HELIA IN-BROWSER NODE</div>
+              <div style="font-size:9px;color:var(--muted);line-height:1.9;">
+                Install <span style="color:var(--cyan);font-family:var(--font)">helia</span> + <span style="color:var(--cyan);font-family:var(--font)">@helia/unixfs</span> in your project for P2P content delivery without relying on any gateway.
+              </div>
+              <div style="margin-top:8px;background:var(--surface);padding:8px;border-radius:2px;border:1px solid var(--border);">
+                <code style="font-size:9px;color:var(--accent);font-family:var(--font);">npm i helia @helia/unixfs</code>
+              </div>
+            </div>
+          </div>
+          <iframe id="previewFrame" src="" style="display:none;width:100%;height:100%;border:none;"></iframe>
+        </div>
+      </div>
+
+      <!-- ═══ HISTORY TAB ═══ -->
+      <div id="tab-history" class="tab-panel" style="display:none;flex-direction:column;height:100%;overflow:hidden;">
+        <div class="panel-header">
+          <div class="ph-dot" style="background:var(--muted)"></div>
+          <span class="ph-title">Build History</span>
+          <span id="historyCount" style="font-size:10px;color:var(--dim);">(0 builds)</span>
+        </div>
+
+        <div id="historyList" class="panel-body">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--dim);gap:10px;">
+            <div style="font-size:36px;opacity:0.15;">≡</div>
+            <div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;">No Build History</div>
+            <div style="font-size:9px;opacity:0.4;">Completed builds will appear here</div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <!-- STATUS BAR -->
+  <div id="statusbar">
+    <div class="sb-item">
+      <div class="sb-dot" id="sbStatusDot" style="background:var(--dim)"></div>
+      <span id="sbStatus">IDLE</span>
+    </div>
+    <span class="sb-sep">|</span>
+    <div class="sb-item">
+      <span id="sbProject">MyDApp v1.0.0</span>
+    </div>
+    <span class="sb-sep">|</span>
+    <div class="sb-item" id="sbPath" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+      /Users/elnox/projects/my-dapp
+    </div>
+    <div class="sb-right">
+      <div class="sb-item">
+        <div class="sb-dot" id="sbIpfsDot" style="background:var(--accent)"></div>
+        <span>IPFS ON</span>
+      </div>
+      <span class="sb-sep">|</span>
+      <span id="sbBuilds">0 builds</span>
+      <span class="sb-sep">|</span>
+      <span>HTML2Web3 <span class="sb-accent">v1.0</span></span>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  HTML2Web3 — Full Interactive UI
+//  iD01t Productions · El'Nox Rah
+// ═══════════════════════════════════════════════════════════
+
+// ── HEX BACKGROUND CANVAS ──────────────────────────────────
+(function(){
+  const canvas = document.getElementById('bgCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, hexes = [];
+
+  function resize(){
+    W = canvas.width = canvas.parentElement.offsetWidth;
+    H = canvas.height = canvas.parentElement.offsetHeight;
+    buildHexes();
+  }
+
+  function buildHexes(){
+    hexes = [];
+    const size = 28, cols = Math.ceil(W/(size*1.8))+1, rows = Math.ceil(H/(size*1.6))+1;
+    for(let r=0;r<rows;r++){
+      for(let c=0;c<cols;c++){
+        const x = c*size*1.75 + (r%2?size*0.9:0);
+        const y = r*size*1.52;
+        hexes.push({x,y,size,alpha:Math.random()*0.06,speed:0.0003+Math.random()*0.0004,phase:Math.random()*Math.PI*2});
+      }
+    }
+  }
+
+  function drawHex(x,y,s,alpha){
+    ctx.beginPath();
+    for(let i=0;i<6;i++){
+      const a = (i*Math.PI/3)-(Math.PI/6);
+      const px = x+s*Math.cos(a), py = y+s*Math.sin(a);
+      i===0?ctx.moveTo(px,py):ctx.lineTo(px,py);
+    }
+    ctx.closePath();
+    ctx.strokeStyle=`rgba(0,255,156,${alpha})`;
+    ctx.lineWidth=0.5;
+    ctx.stroke();
+  }
+
+  let t=0;
+  function animate(){
+    ctx.clearRect(0,0,W,H);
+    t+=1;
+    hexes.forEach(h=>{
+      const a = h.alpha*(0.5+0.5*Math.sin(t*h.speed+h.phase));
+      drawHex(h.x,h.y,h.size,a);
+    });
+    requestAnimationFrame(animate);
+  }
+
+  resize();
+  window.addEventListener('resize',resize);
+  animate();
+})();
+
+// ── CUSTOM CURSOR ──────────────────────────────────────────
+(function(){
+  const c = document.getElementById('cursor');
+  const d = document.getElementById('cursor-dot');
+  let mx=0,my=0,cx=0,cy=0;
+  document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;d.style.left=mx+'px';d.style.top=my+'px';});
+  function moveCursor(){
+    cx+=(mx-cx)*0.12;cy+=(my-cy)*0.12;
+    c.style.left=cx+'px';c.style.top=cy+'px';
+    requestAnimationFrame(moveCursor);
+  }
+  moveCursor();
+})();
+
+// ── STATE ──────────────────────────────────────────────────
+const state = {
+  activeTab:'config',
+  buildStatus:'idle',
+  buildProgress:0,
+  isBuilding:false,
+  enableIpfs:true,
+  enableWalletGate:false,
+  walletConnected:false,
+  walletAddress:'0x742d35Cc6634C0532925a3b8D4C9f51C7b5c1234',
+  targets:['all'],
+  buildHistory:[],
+  lastCid:null,
+  logLines:[],
+  autoScroll:true,
+  sidebarCollapsed:false,
+  logFilter:'all',
+  activeGateway:'local',
+};
+
+// ── TABS ───────────────────────────────────────────────────
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    const tab = this.dataset.tab;
+    switchTab(tab);
+  });
+});
+
+function switchTab(tab){
+  state.activeTab = tab;
+  document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  document.querySelectorAll('.tab-panel').forEach(p=>p.style.display='none');
+  const panel = document.getElementById(`tab-${tab}`);
+  panel.style.display='flex';
+}
+
+// ── SIDEBAR COLLAPSE ───────────────────────────────────────
+function toggleSidebar(){
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  const sb = document.getElementById('sidebar');
+  sb.classList.toggle('collapsed', state.sidebarCollapsed);
+  document.getElementById('collapseIcon').textContent = state.sidebarCollapsed ? '▷' : '◁';
+  document.getElementById('collapseText').style.display = state.sidebarCollapsed ? 'none' : 'inline';
+  document.querySelectorAll('.nav-label,.nav-sub,.nav-badge,.status-label').forEach(el=>{
+    el.style.display = state.sidebarCollapsed ? 'none' : '';
+  });
+}
+
+// ── IPFS TOGGLE ────────────────────────────────────────────
+function toggleSetting(type){
+  if(type==='ipfs'){
+    state.enableIpfs = !state.enableIpfs;
+    document.getElementById('ipfsToggle').classList.toggle('on',state.enableIpfs);
+    document.getElementById('ipfsBody').style.opacity = state.enableIpfs?'1':'0.4';
+    document.getElementById('ipfsBody').style.pointerEvents = state.enableIpfs?'':'none';
+    updateIpfsStatus();
+  }
+}
+
+function updateIpfsStatus(){
+  const dot = document.getElementById('sbIpfsDot');
+  const label = document.querySelector('#statusbar .sb-right span:first-child') || {};
+  dot.style.background = state.enableIpfs?'var(--accent)':'var(--dim)';
+}
+
+// ── GATE TOGGLE ────────────────────────────────────────────
+function toggleGate(){
+  state.enableWalletGate = !state.enableWalletGate;
+  document.getElementById('gateToggle').classList.toggle('on',state.enableWalletGate);
+  document.getElementById('gateBody').style.opacity = state.enableWalletGate?'1':'0.4';
+  document.getElementById('gateBody').style.pointerEvents = state.enableWalletGate?'':'none';
+  const badge = document.getElementById('gateBadge');
+  badge.textContent = state.enableWalletGate?'ACTIVE':'INACTIVE';
+  badge.className = 'badge '+(state.enableWalletGate?'badge-warn':'badge-idle');
+}
+
+// ── CHAIN + GATE TYPE SELECTION ────────────────────────────
+function selectChain(el,chain){
+  document.querySelectorAll('.chain-card').forEach(c=>{
+    c.classList.remove('active');
+    c.querySelector('.chain-label').style.color='';
+  });
+  el.classList.add('active');
+  el.querySelector('.chain-label').style.color='var(--accent)';
+}
+
+function selectGateType(el,type){
+  document.querySelectorAll('.gate-type').forEach(g=>{
+    g.classList.remove('active');
+    g.querySelector('.gate-type-name').style.color='';
+  });
+  el.classList.add('active');
+  el.querySelector('.gate-type-name').style.color='var(--accent)';
+}
+
+// ── ADDRESS VALIDATION ─────────────────────────────────────
+function validateAddr(input){
+  const val = input.value;
+  const valid = /^0x[0-9a-fA-F]{40}$/.test(val);
+  input.style.borderColor = val.length===0?'var(--border)':valid?'var(--accent)':'var(--danger)';
+  const icon = document.getElementById('addrIcon');
+  icon.textContent = valid?'✓':'✗';
+  icon.style.color = valid?'var(--accent)':'var(--danger)';
+  icon.style.display = val.length>0?'block':'none';
+}
+
+// ── WALLET CONNECT ─────────────────────────────────────────
+function connectWallet(){
+  const btn = document.querySelector('#walletDisconnected .btn');
+  btn.textContent='◌ Connecting...';
+  btn.disabled=true;
+  setTimeout(()=>{
+    state.walletConnected = true;
+    document.getElementById('walletDisconnected').style.display='none';
+    document.getElementById('walletConnected').style.display='block';
+    const addr = state.walletAddress;
+    document.getElementById('walletAddr').textContent = addr.slice(0,6)+'...'+addr.slice(-4);
+    btn.textContent='⬡ Connect MetaMask';
+    btn.disabled=false;
+  },1200);
+}
+
+function disconnectWallet(){
+  state.walletConnected = false;
+  document.getElementById('walletDisconnected').style.display='block';
+  document.getElementById('walletConnected').style.display='none';
+  document.getElementById('verifyResult').style.display='none';
+}
+
+function verifyToken(){
+  const res = document.getElementById('verifyResult');
+  res.style.display='none';
+  setTimeout(()=>{
+    const verified = document.getElementById('contractAddr').value.startsWith('0x') && document.getElementById('contractAddr').value.length===42;
+    res.className = 'verify-result '+(verified?'pass':'fail');
+    res.innerHTML = verified
+      ? '✓ &nbsp; Access Granted — Balance: 3 tokens | Required: 1'
+      : '✗ &nbsp; Access Denied — No tokens found at this address';
+    res.style.display='flex';
+  },800);
+}
+
+function signMsg(){
+  alert('Signature: 0x9d8a42e7b3f1c...\n\nMessage signed successfully.');
+}
+
+// ── SCAN PROJECT ───────────────────────────────────────────
+let scanning = false;
+function scanProject(){
+  if(scanning) return;
+  scanning = true;
+  const spinner = document.getElementById('scanSpinner');
+  spinner.style.animation='spin 0.5s linear infinite';
+  spinner.style.display='inline-block';
+  setTimeout(()=>{
+    scanning=false;
+    spinner.style.animation='';
+    spinner.textContent='↺';
+  },800);
+}
+
+function pickSource(){
+  const input = document.getElementById('sourceDir');
+  const paths=['/Users/elnox/projects/my-dapp','/home/dev/web3-app','/Users/creator/nft-gallery','/workspace/html5-game'];
+  input.value = paths[Math.floor(Math.random()*paths.length)];
+  document.getElementById('sbPath').textContent = input.value;
+}
+
+function pickOutput(){
+  const input = document.getElementById('outputDir');
+  const paths=['/Users/elnox/Desktop/builds','/home/dev/dist','/Users/creator/releases','/workspace/output'];
+  input.value = paths[Math.floor(Math.random()*paths.length)];
+}
+
+// ── CHIP TOGGLE ────────────────────────────────────────────
+function toggleChip(el,val){
+  if(val==='all'){
+    document.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+    el.classList.add('active');
+    state.targets=['all'];
+  } else {
+    document.querySelector('.chip:first-child').classList.remove('active');
+    el.classList.toggle('active');
+    state.targets = [...document.querySelectorAll('.chip.active:not(:first-child)')].map(c=>c.textContent.toLowerCase());
+    if(!state.targets.length){ document.querySelector('.chip').classList.add('active'); state.targets=['all']; }
+  }
+}
+
+// ── IPFS PING ──────────────────────────────────────────────
+function pingIpfs(){
+  const box = document.getElementById('ipfsStatusBox');
+  box.innerHTML='<div class="ipfs-dot" style="background:var(--warn);animation:pulse 0.5s infinite;"></div><span class="ipfs-text" style="color:var(--warn)">Connecting to node...</span>';
+  setTimeout(()=>{
+    const ok=Math.random()>0.2;
+    if(ok){
+      box.innerHTML='<div class="ipfs-dot connected"></div><span class="ipfs-text" style="color:var(--accent)">Connected — Kubo v0.27.0 — Peer: 12D3KooW...</span>';
+    } else {
+      box.innerHTML='<div class="ipfs-dot" style="background:var(--danger)"></div><span class="ipfs-text" style="color:var(--danger)">Node unreachable — start your IPFS daemon</span>';
+    }
+  },1000);
+}
+
+// ── BUILD PIPELINE ─────────────────────────────────────────
+const BUILD_STEPS = [
+  {level:'info',    msg:'▶ BUILD SESSION: A7F3B2D1'},
+  {level:'info',    msg:'  Project: '+()=>document.getElementById('projectName').value+'  Source:  '+()=>document.getElementById('sourceDir').value},
+  {level:'info',    msg:'  Project: MyDApp  v1.0.0'},
+  {level:'info',    msg:'  Source:  /Users/elnox/projects/my-dapp'},
+  {level:'info',    msg:'  Output:  /Users/elnox/Desktop/builds'},
+  {level:'info',    msg:'─────────────────────────────────────────'},
+  {level:'progress',msg:'[ 5%] Validating source directory...', pct:5},
+  {level:'success', msg:'  ✓ Source directory validated'},
+  {level:'progress',msg:'[10%] Scanning project files...', pct:10},
+  {level:'success', msg:'  Found 47 files to package'},
+  {level:'trace',   msg:'  js: 18 · css: 6 · html: 4 · img: 12 · other: 7'},
+  {level:'progress',msg:'[20%] Injecting Web3 Wallet-Gate layer...', pct:20},
+  {level:'info',    msg:'  Chain: ETHEREUM | Contract: 0x1A92...050C | Type: ERC721'},
+  {level:'success', msg:'  ✓ wallet-gate.html injector generated'},
+  {level:'progress',msg:'[30%] Preparing output directory...', pct:30},
+  {level:'success', msg:'  ✓ /Users/elnox/Desktop/builds ready'},
+  {level:'progress',msg:'[35%] Generating offline-first service worker...', pct:35},
+  {level:'info',    msg:'  Service Worker: cache-first strategy, 47 assets pre-cached'},
+  {level:'info',    msg:'  Install event: skip-waiting enabled'},
+  {level:'success', msg:'  ✓ sw.js injected'},
+  {level:'progress',msg:'[40%] Bundling assets into archive...', pct:40},
+  {level:'trace',   msg:'  + assets/index.html'},
+  {level:'trace',   msg:'  + assets/js/app.bundle.js'},
+  {level:'trace',   msg:'  + assets/css/main.css'},
+  {level:'trace',   msg:'  + assets/img/hero.webp'},
+  {level:'trace',   msg:'  + assets/img/bg-pattern.svg'},
+  {level:'trace',   msg:'  + assets/js/vendor.js'},
+  {level:'trace',   msg:'  + assets/js/ethers.min.js'},
+  {level:'trace',   msg:'  + [40 more files]...'},
+  {level:'progress',msg:'[55%] Packing [47/47]...', pct:55},
+  {level:'success', msg:'  Bundle size: 1.24 MB (47 files)'},
+  {level:'progress',msg:'[65%] Bundle complete. Finalizing...', pct:65},
+  {level:'progress',msg:'[70%] Writing build manifest...', pct:70},
+  {level:'info',    msg:'  Manifest: /Users/elnox/Desktop/builds/a7f3b2d1-manifest.json'},
+  {level:'progress',msg:'[75%] Connecting to IPFS node...', pct:75},
+  {level:'info',    msg:'  Uploading to: http://127.0.0.1:5001/api/v0/add?pin=true'},
+  {level:'info',    msg:'  Transfer: 1.24 MB...'},
+  {level:'progress',msg:'[85%] Pinning to IPFS network...', pct:85},
+  {level:'success', msg:'  CID: QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD'},
+  {level:'success', msg:'  Gateway: http://127.0.0.1:8080/ipfs/QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD'},
+  {level:'progress',msg:'[90%] Generating Tauri wrapper configuration...', pct:90},
+  {level:'info',    msg:'  Tauri config: com.id01t.mydapp — all targets'},
+  {level:'info',    msg:'  Icon injection: 32x32, 128x128, 256x256 ✓'},
+  {level:'progress',msg:'[100%] Build complete.', pct:100},
+  {level:'info',    msg:'─────────────────────────────────────────'},
+  {level:'success', msg:'✓ BUILD COMPLETE in 4827ms'},
+  {level:'success', msg:'  Output: /Users/elnox/Desktop/builds/mydapp-a7f3b2d1.zip'},
+];
+
+let buildInterval = null;
+let stepIdx = 0;
+let buildLines = [];
+let buildFilter = 'all';
+
+function handleBuild(){
+  if(state.isBuilding){
+    cancelBuild();
+    return;
+  }
+  startBuild();
+}
+
+function startBuild(){
+  state.isBuilding = true;
+  state.buildStatus = 'building';
+  stepIdx = 0;
+  buildLines = [];
+
+  // Switch to build tab
+  switchTab('build');
+
+  // Update UI
+  updateBuildStatus('building');
+  document.getElementById('buildBtn').innerHTML='<span>■</span> Cancel';
+  document.getElementById('buildBtn').className='btn-build cancel';
+  document.getElementById('progressSection').style.display='block';
+  document.getElementById('build-result').style.display='none';
+  document.getElementById('build-log').innerHTML='';
+
+  buildInterval = setInterval(()=>{
+    if(stepIdx>=BUILD_STEPS.length){
+      clearInterval(buildInterval);
+      completeBuild();
+      return;
+    }
+    const step = BUILD_STEPS[stepIdx];
+    addLogLine(step.level, step.msg);
+    if(step.pct!==undefined) setProgress(step.pct);
+    stepIdx++;
+  }, 60);
+}
+
+function cancelBuild(){
+  if(buildInterval) clearInterval(buildInterval);
+  state.isBuilding = false;
+  state.buildStatus = 'idle';
+  addLogLine('warn','⚠ Build cancelled by user.');
+  resetBuildBtn();
+  updateBuildStatus('idle');
+}
+
+function completeBuild(){
+  state.isBuilding = false;
+  state.buildStatus = 'success';
+  state.lastCid = 'QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD';
+
+  resetBuildBtn();
+  updateBuildStatus('success');
+  setProgress(100);
+
+  // Show result
+  const result = document.getElementById('build-result');
+  result.className = 'success';
+  result.style.display = 'block';
+  result.innerHTML = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:14px;">
+      <div style="flex:1;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <span style="font-size:12px;font-weight:700;color:var(--accent);">✓ BUILD SUCCESS</span>
+          <span style="font-size:9px;color:var(--muted);">4,827ms · 47 files · 1.24 MB</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+          <span style="font-size:9px;color:var(--muted);width:32px;text-transform:uppercase;letter-spacing:1px;">CID</span>
+          <code style="font-size:10px;color:var(--purple);background:var(--surface);padding:2px 8px;border-radius:2px;">QmX9vTpJ4r8...nZoD</code>
+          <button class="btn btn-ghost" onclick="navigator.clipboard.writeText('QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD')" style="font-size:9px;padding:3px 7px;">⎘ Copy</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:9px;color:var(--muted);width:32px;text-transform:uppercase;letter-spacing:1px;">URL</span>
+          <code style="font-size:9px;color:var(--cyan);">http://127.0.0.1:8080/ipfs/QmX9vTp...</code>
+        </div>
+      </div>
+      <button class="btn btn-ghost" onclick="openFolder()" style="font-size:9px;flex-shrink:0;">Open Folder</button>
+    </div>
+  `;
+
+  // Update statusbar
+  document.getElementById('sbBuilds').textContent = (state.buildHistory.length+1)+' builds';
+
+  // Add to history
+  addToHistory({
+    success:true,
+    sessionId:'A7F3B2D1-2041-'+Math.random().toString(36).slice(2,6).toUpperCase(),
+    outputPath:'/Users/elnox/Desktop/builds/mydapp-a7f3b2d1.zip',
+    ipfsCid:'QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD',
+    ipfsGatewayUrl:'http://127.0.0.1:8080/ipfs/QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD',
+    fileCount:47, bundleSize:'1.24 MB', duration:'4,827ms',
+    errors:[]
+  });
+
+  // Enable CID badge in preview
+  document.getElementById('cidBadge').style.display='inline-flex';
+  document.getElementById('previewCid').placeholder = 'QmX9vTpJ4r8kLmN2w6sYeHcMfAdBqS7V3uGiEjWkP1nZoD';
+}
+
+function resetBuildBtn(){
+  document.getElementById('buildBtn').innerHTML='<span>▶</span> Build + Deploy';
+  document.getElementById('buildBtn').className='btn-build';
+}
+
+function addLogLine(level, msg){
+  const ts = new Date().toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  buildLines.push({level,msg,ts});
+
+  const container = document.getElementById('build-log');
+  // Remove empty state
+  const empty = container.querySelector('.log-empty');
+  if(empty) empty.remove();
+
+  const icons={info:'·',success:'✓',error:'✗',warn:'⚠',trace:'·',progress:'▶'};
+  const div = document.createElement('div');
+  div.className=`log-line log-${level}`;
+  div.dataset.level=level;
+  div.innerHTML=`<span class="log-ts">${ts}</span><span class="log-icon">${icons[level]||'·'}</span><span class="log-msg">${msg}</span>`;
+
+  if(buildFilter!=='all' && level!==buildFilter) div.style.display='none';
+
+  container.appendChild(div);
+  if(state.autoScroll) div.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+function setProgress(pct){
+  state.buildProgress = pct;
+  document.getElementById('progressFill').style.width=pct+'%';
+  document.getElementById('progressPct').textContent=pct+'%';
+}
+
+function filterLogs(val){
+  buildFilter = val;
+  document.querySelectorAll('#build-log .log-line').forEach(el=>{
+    el.style.display = (val==='all'||el.dataset.level===val)?'flex':'none';
+  });
+}
+
+function clearLog(){
+  buildLines=[];
+  const container = document.getElementById('build-log');
+  container.innerHTML=`<div class="log-empty"><div class="log-empty-icon">◈</div><div class="log-empty-text">Awaiting Build</div><div class="log-empty-sub">Configure your project and click Build + Deploy to start the pipeline</div></div>`;
+  setProgress(0);
+  document.getElementById('progressSection').style.display='none';
+  document.getElementById('build-result').style.display='none';
+}
+
+function toggleAutoScroll(){
+  state.autoScroll = !state.autoScroll;
+  document.getElementById('autoScrollBtn').classList.toggle('on',state.autoScroll);
+}
+
+function updateBuildStatus(status){
+  state.buildStatus = status;
+  const colors = {idle:'var(--dim)',building:'var(--cyan)',success:'var(--accent)',error:'var(--danger)'};
+  const labels = {idle:'STANDBY',building:'BUILDING',success:'COMPLETE',error:'FAILED'};
+  const badgeClasses = {idle:'badge-idle',building:'badge-info',success:'badge-success',error:'badge-error'};
+
+  document.getElementById('statusDot').className='status-dot '+status;
+  document.getElementById('statusLabel').textContent=labels[status];
+  document.getElementById('buildStatusDot').style.background=colors[status];
+
+  const badge = document.getElementById('buildBadge');
+  badge.textContent=labels[status];
+  badge.className='badge '+badgeClasses[status];
+
+  document.getElementById('sbStatusDot').style.background=colors[status];
+  document.getElementById('sbStatus').textContent=status==='building'?`${state.buildProgress}%`:labels[status];
+}
+
+// ── HISTORY ────────────────────────────────────────────────
+function addToHistory(item){
+  state.buildHistory.unshift(item);
+  renderHistory();
+  const count = state.buildHistory.length;
+  document.getElementById('historyBadge').style.display='inline';
+  document.getElementById('historyBadge').textContent=count;
+  document.getElementById('historyCount').textContent=`(${count} build${count>1?'s':''})`;
+  document.getElementById('sbBuilds').textContent=count+' build'+(count>1?'s':'');
+}
+
+function renderHistory(){
+  const list = document.getElementById('historyList');
+  if(!state.buildHistory.length){
+    list.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:200px;color:var(--dim);gap:10px;"><div style="font-size:36px;opacity:0.15;">≡</div><div style="font-size:10px;text-transform:uppercase;letter-spacing:2px;">No Build History</div></div>';
+    return;
+  }
+  list.innerHTML = state.buildHistory.map((item,i)=>`
+    <div class="history-item ${item.success?'success':'error'}">
+      <div class="history-header">
+        <span style="font-size:13px;color:${item.success?'var(--accent)':'var(--danger)'};">${item.success?'✓':'✗'}</span>
+        <div style="flex:1;">
+          <div style="font-size:10px;color:var(--text);">Session ${item.sessionId.slice(0,8)}</div>
+          <div style="font-size:9px;color:var(--muted);margin-top:2px;">${item.fileCount} files · ${item.bundleSize} · ${item.duration}</div>
+        </div>
+        ${i===0?'<span class="badge badge-info" style="font-size:8px;">Latest</span>':''}
+        <button class="btn btn-ghost" style="font-size:9px;padding:3px 8px;" onclick="openFolder()">Open</button>
+      </div>
+      <div class="history-body">
+        ${item.ipfsCid?`<div class="history-kv"><span class="history-key">CID</span><span class="history-val">${item.ipfsCid.slice(0,14)}...${item.ipfsCid.slice(-6)}</span><button class="btn btn-ghost" onclick="navigator.clipboard.writeText('${item.ipfsCid}')" style="font-size:8px;padding:2px 6px;margin-left:4px;">⎘</button></div>`:''}
+        ${item.ipfsGatewayUrl?`<div class="history-kv"><span class="history-key">URL</span><span class="history-val" style="font-size:9px;">${item.ipfsGatewayUrl.slice(0,48)}...</span></div>`:''}
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── PREVIEW ────────────────────────────────────────────────
+function selectGateway(btn,gw){
+  document.querySelectorAll('.gw-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  state.activeGateway=gw;
+}
+
+function launchPreview(){
+  const cid = document.getElementById('previewCid').value || state.lastCid;
+  if(!cid){ alert('No CID available. Build first or paste a CID.'); return; }
+  const gateways = {local:'http://127.0.0.1:8080',ipfs:'https://ipfs.io','cloudflare':'https://cloudflare-ipfs.com','w3s':'https://w3s.link'};
+  const gw = gateways[state.activeGateway] || gateways.local;
+  const url = `${gw}/ipfs/${cid}`;
+  document.getElementById('previewUrlBar').style.display='block';
+  document.getElementById('previewUrlText').textContent=url;
+  document.getElementById('previewEmpty').style.display='none';
+  // NOTE: in production this would set iframe src, but in demo we show the URL
+  alert(`Preview URL:\n${url}\n\n(In the desktop app, this renders inside the panel.)`);
+}
+
+function useLatestCid(){
+  if(state.lastCid) document.getElementById('previewCid').value=state.lastCid;
+}
+
+function copyUrl(){
+  const url = document.getElementById('previewUrlText').textContent;
+  if(url){ navigator.clipboard.writeText(url); }
+}
+
+// ── MISC ───────────────────────────────────────────────────
+function openFolder(){
+  alert('Opening output folder in native file manager...');
+}
+
+// ── PROJECT NAME UPDATE ────────────────────────────────────
+document.getElementById('projectName').addEventListener('input',function(){
+  document.getElementById('sbProject').textContent=this.value+' v'+(document.getElementById('appVersion').value||'1.0.0');
+});
+document.getElementById('appVersion').addEventListener('input',function(){
+  document.getElementById('sbProject').textContent=(document.getElementById('projectName').value||'Project')+' v'+this.value;
+});
+
+// ── INIT ───────────────────────────────────────────────────
+document.getElementById('historyCount').textContent='(0 builds)';
+</script>
+</body>
+</html>
